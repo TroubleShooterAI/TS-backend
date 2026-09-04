@@ -65,10 +65,24 @@ class CodeIndexer:
         )
         print(f"✅ [{self.collection_name}] 컬렉션에 소스코드 인덱싱 완료!")
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # 테스트용: 현재 백엔드 폴더(또는 타겟 앱 폴더)를 인덱싱
-    indexer = CodeIndexer(collection_name="techstack_navigator_codebase")
+#    indexer = CodeIndexer(collection_name="techstack_navigator_codebase")
     
     # 예시: 인덱싱할 프로젝트 소스코드 폴더 경로 지정
-    target_repo_path = "./"  # 현재 디렉토리 기준
-    indexer.index_directory(repo_path=target_repo_path, file_extension=".py", language_type=Language.PYTHON)
+#    target_repo_path = "./"  # 현재 디렉토리 기준
+#    indexer.index_directory(repo_path=target_repo_path, file_extension=".py", language_type=Language.PYTHON)
+
+if __name__ == "__main__":
+    # 1. 테스트 서비스 전용 컬렉션 이름 지정
+    indexer = CodeIndexer(collection_name="my_test_service_codebase")
+    
+    # 2. 상위 폴더의 my-target-service 경로 지정
+    target_repo_path = "../my-target-service"
+    
+    # 3. 인덱싱 실행
+    indexer.index_directory(
+        repo_path=target_repo_path, 
+        file_extension=".py", 
+        language_type=Language.PYTHON
+    )

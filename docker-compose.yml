@@ -2,23 +2,21 @@ version: '3.8'
 
 services:
   redis:
-    # Redis 서비스 (log queue용)  -> 임시 저장(데이터 유지 필요 없음)
-    image: redis:apline
+    image: redis:alpine
     container_name: redis-troubleshooter
     ports:
       - "6379:6379"
-    restarts: always
+    restart: always
 
-    # Qdrant 서비스 (code vector DB용) -> 저장 필요 => volume 사용
-    qdrant:
-      image: qdrant/qdrant:latest
-      container_name: qdrant-troubleshooter
-      ports:
-        - "6333:6333"
-        - "6334:6334"
-      volumes:
-        - qdrant_storage:/qdrant/storage
-      restart: always
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-troubleshooter
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: always
+
 volumes:
   qdrant_storage:
-
