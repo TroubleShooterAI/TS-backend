@@ -21,7 +21,7 @@ qdrant_client_obj = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 # 2. Gemini 임베딩 및 LLM 초기화
 embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/text-embedding-004",
+    model="text-embedding-004",
     google_api_key=GEMINI_API_KEY
 )
 

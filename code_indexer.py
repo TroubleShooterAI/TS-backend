@@ -6,6 +6,7 @@ from langchain_community.document_loaders.parsers.language.language_parser impor
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 #from langchain_openai import OpenAIEmbeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import Qdrant
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
@@ -21,13 +22,18 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 class CodeIndexer:
     def __init__(self, collection_name: str = "troubleshooter_codebase"):
         self.collection_name = collection_name
+
+        # GEMINI 키 검증
+        if not GEMINI_API_KEY:
+            raise ValueError(".env에서 GENINI KEY를 못 찾았습니다.")
         #self.embeddings = OpenAIEmbeddings(
         #    model="text-embedding-3-small", 
         #    openai_api_key=OPENAI_API_KEY
         #)
+
         # Google Gemini 무료 임베딩 모델 적용
         self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
+            model="text-embedding-004",
             google_api_key=GEMINI_API_KEY
         )
 
@@ -39,19 +45,24 @@ class CodeIndexer:
         """
         print(f"📂 [{repo_path}] 디렉토리에서 소스 코드를 불러오는 중...")
 
-        # 1. 소스코드 로딩 및 파싱 (함수/클래스 단위 구조 인식)
-        loader = GenericLoader.from_filesystem(
-            repo_path,
-            glob=f"**/*{file_extension}",
-            suffixes=[file_extension],
-            parser=LanguageParser(language=language_type, parser_threshold=500)
-        )
-        documents = loader.load()
-        print(f"📄 총 {len(documents)}개의 코드 파일/블록 수집 완료.")
+        # venv, __pycache__, .git 폴더를 확실하게 걸러내는 파일 수집 로직
+        documents = []
+        ignored_dirs = {'venv', '.venv', '__pycache__', '.git', 'build', 'dist'}
 
-        if not documents:
-            print("⚠️ 수집된 문서가 없습니다. 경로 및 확장자를 확인해주세요.")
-            return
+        for root, dirs, files in os.walk(repo_path):
+            # 무시할 디렉토리는 탐색 목록에서 즉시 제외
+            dirs[:] = [d for d in dirs if d not in ignored_dirs]
+            
+            for file in files:
+                if file.endswith(file_extension):
+                    file_path = os.path.join(root, file)
+                    try:
+                        loader = TextLoader(file_path, encoding='utf-8')
+                        documents.extend(loader.load())
+                    except Exception as e:
+                        print(f"⚠️ 파일 로드 실패 ({file_path}): {e}")
+
+        print(f"📄 총 {len(documents)}개의 소스코드 파일 수집 완료.")
 
         # 2. 코드 구조에 맞게 Chunking (문맥 보존)
         python_splitter = RecursiveCharacterTextSplitter.from_language(
