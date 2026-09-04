@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers.language.language_parser import LanguageParser
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+#from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Qdrant
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
@@ -12,17 +13,24 @@ from qdrant_client.http.models import Distance, VectorParams
 # .env 파일 로드
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+#OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 
 class CodeIndexer:
     def __init__(self, collection_name: str = "troubleshooter_codebase"):
         self.collection_name = collection_name
-        self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-3-small", 
-            openai_api_key=OPENAI_API_KEY
+        #self.embeddings = OpenAIEmbeddings(
+        #    model="text-embedding-3-small", 
+        #    openai_api_key=OPENAI_API_KEY
+        #)
+        # Google Gemini 무료 임베딩 모델 적용
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/text-embedding-004",
+            google_api_key=GEMINI_API_KEY
         )
+
         self.client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
     def index_directory(self, repo_path: str, file_extension: str = ".py", language_type: Language = Language.PYTHON):
