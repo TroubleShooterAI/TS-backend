@@ -5,7 +5,9 @@ from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers.language.language_parser import LanguageParser
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 #from langchain_openai import OpenAIEmbeddings
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+#from langchain_google_genai import GoogleGenerativeAIEmbeddings
+# langchain_google_genai 대신 FastEmbed 임포트
+from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import Qdrant
 from qdrant_client import QdrantClient
@@ -30,11 +32,9 @@ class CodeIndexer:
         #    model="text-embedding-3-small", 
         #    openai_api_key=OPENAI_API_KEY
         #)
-
-        # Google Gemini 무료 임베딩 모델 적용
-        self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="text-embedding-004",
-            google_api_key=GEMINI_API_KEY
+        # Google API 대신 로컬 경량 모델 사용 (속도 우수, 100% 무료/안정적)
+        self.embeddings = FastEmbedEmbeddings(
+            model_name="BAAI/bge-small-en-v1.5"
         )
 
         self.client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
