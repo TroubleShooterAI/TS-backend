@@ -1,8 +1,8 @@
 # code_indexer.py
 import os
 from dotenv import load_dotenv
-from langchain_community.document_loaders import GenericLoader
-from langchain_community.document_loaders.parsers import LanguageParser
+from langchain_community.document_loaders.generic import GenericLoader
+from langchain_community.document_loaders.parsers.language.language_parser import LanguageParser
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Qdrant
