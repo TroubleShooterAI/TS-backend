@@ -67,7 +67,7 @@ def process_error_log(log_data):
     
     print("🤖 Gemini 분석 요청 중...")
     response = ai_client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.6-flash",
         contents=prompt
     )
     
