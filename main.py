@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 import redis
@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import os
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+from pydantic import BaseModel, EmailStr
 
 # 환경변수 로드
 load_dotenv()
@@ -27,6 +28,13 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
+# Pydantic Schemas
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
 # DB 테이블 정의
 class UserDB(Base):
     __tablename__ = "users"
@@ -42,6 +50,7 @@ class ErrorLogDB(Base):
     __tablename__ = "error_logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id")) # 외래키 추가
     service_name = Column(String, index=True)
     exception_type = Column(String)
     message = Column(Text)
@@ -50,7 +59,9 @@ class ErrorLogDB(Base):
     status = Column(String, default="UNSOLVED") #UNSOLVED, IN_PROGRESS, RESOLVED
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-Base.metadata.create_all(bing=engine)
+    owner = relationship("UserDB", back_populates="logs") # 역방향 관계 추가
+
+Base.metadata.create_all(bind=engine)
 
 # FastAPI 앱 및 CORS 설정
 app = FastAPI(title="TroubleShooter AI - Main Backend")
@@ -58,10 +69,13 @@ app = FastAPI(title="TroubleShooter AI - Main Backend")
 # React(Vite) 개발 서버 포트 허용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        ],   # 허용할 프론트엔드 출처
+    allow_credentials=True,  # 쿠키 및 인증 헤더 허용
+    allow_methods=["*"],  # 모든 HTTP 메서드 허용 -> GET, POST, ...
+    allow_headers=["*"],   # 모든 요청 헤더 허용
 )
 
 def get_db():
@@ -98,18 +112,18 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=404, detail="유저를 찾을 수 없습니다.")
     return user
 
-## API 앤드포인트
+# API 앤드포인트
 @app.post("/api/v1/auth/signup")
-def signup(
-    email: str, 
-    password: str, 
-    db: Session = Depends(get_db)
-    ):
-    db_user = db.query(UserDB).filter(UserDB.email == email).first()
+def signup(req: SignupRequest, db: Session = Depends(get_db)):
+    # 1. 기존 유저 존재 확인
+    db_user = db.query(UserDB).filter(UserDB.email == req.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="이미 등록된 이메일입니다.")
-    hashed_pwd = get_password_hash(password)
-    new_user = UserDB(email=email, hashed_password=hashed_pwd)
+    
+    # 2. 비밀번호 해싱 및 유저 생성
+    hashed_pwd = get_password_hash(req.password)
+    new_user = UserDB(email=req.email, hashed_password=hashed_pwd)
+    
     db.add(new_user)
     db.commit()
     return {"message": "회원가입이 완료되었습니다."}
