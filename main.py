@@ -11,6 +11,8 @@ import os
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 # 환경변수 로드
 load_dotenv()
@@ -18,6 +20,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback_secret_key_for_dev")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_ID")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -34,6 +37,8 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    id_token: str
 
 # DB 테이블 정의
 class UserDB(Base):
@@ -112,7 +117,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=404, detail="유저를 찾을 수 없습니다.")
     return user
 
-# API 앤드포인트
+## API 앤드포인트 ## 
+# 회원가입
 @app.post("/api/v1/auth/signup")
 def signup(req: SignupRequest, db: Session = Depends(get_db)):
     # 1. 기존 유저 존재 확인
@@ -123,11 +129,12 @@ def signup(req: SignupRequest, db: Session = Depends(get_db)):
     # 2. 비밀번호 해싱 및 유저 생성
     hashed_pwd = get_password_hash(req.password)
     new_user = UserDB(email=req.email, hashed_password=hashed_pwd)
-    
+
     db.add(new_user)
     db.commit()
     return {"message": "회원가입이 완료되었습니다."}
 
+# 로그인
 @app.post("/api/v1/auth/login")
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(), 
@@ -140,6 +147,39 @@ def login(
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type":"bearer"}
 
+# 구글 로그인
+@app.post("/api/v1/auth/google")
+def google_login(req: GoogleLoginRequest, db: Session = Depends(get_db)):
+    try:
+        # 1. 구글 토큰 검증
+        id_info = id_token.verify_oauth2_token(
+            req.id_token, 
+            google_requests.Request(), 
+            GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10  # 10초의 시간 차이 허용
+        )
+        email = id_info.get("email")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="구글 계정에서 이메일을 가져올 수 없습니다.")
+        
+        # 2. 유저 조회 또는 신규 생성
+        user = db.query(UserDB).filter(UserDB.email == email).first()
+        if not user:
+            random_pwd = get_password_hash(os.urandom(16).hex())
+            user = UserDB(email=email, hashed_password=random_pwd)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        # 3. 자체 JWT 발급
+        access_token = create_access_token(data={"sub": user.email})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    except ValueError as e:
+        # 자세한 오류 이유를 백엔드 터미널에 직접 출력
+        print(f"❌ 구글 토큰 검증 실패 상세 이유: {e}")
+        raise HTTPException(status_code=400, detail=f"유효하지 않은 구글 토큰입니다. ({e})")
 
 # 에러 목록 조회 API
 @app.get("/api/v1/errors")
