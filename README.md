@@ -15,7 +15,8 @@
 ---
 
 ## 🏗️ Architecture
-(첨부 예정)
+<img width="4004" height="798" alt="mermaid-diagram" src="https://github.com/user-attachments/assets/c622f923-a471-4ad1-81f6-9c93846376fc" />
+
 
 
 ## 🛠️ Tech Stack
